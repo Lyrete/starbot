@@ -2,7 +2,7 @@ require('dotenv').config()
 const Tgfancy = require('tgfancy');
 const { Pool } = require('pg');
 const pool = new Pool()
-const token = process.env.TGBOT_APIKEY;
+const token = process.env.TGTESTBOT_APIKEY;
 const bot = new Tgfancy(token, {polling:true});
 
 const fly_points = [2, 7, 9, 13];
@@ -24,14 +24,11 @@ bot.onText(/\/gdpr/, async (msg) => {
 
 bot.onText(/\/extra/, async (msg) => {
     const user = await getUser(msg.chat.id);
-    if(!user){
-        return false;
-    }
+    const text = await getCorrectMessage(35, user.lang);
     if(user.group_id == null){
         bot.sendMessage(msg.chat.id, await getCorrectMessage(16, user.lang));
         return false;
     }
-    const text = await getCorrectMessage(35, user.lang);    
     const opts = {
         reply_to_message_id: msg.message_id,
         reply_markup: {
@@ -217,14 +214,14 @@ bot.onText(/\/extra/, async (msg) => {
 
 bot.onText(/\/send/, async (msg, match) => {
     if(msg.chat.id === 151737471){
-        bot.sendMessage(644497109, 'If the bot seems very unresponsive to your commands, try using /start again, it might have missed your registration!');
+        bot.sendMessage(1201111144, 'Aloitukseen tarvittava koodi löytyy vastakkaiselta puolelta noppaa!');
     }
 });
 
 //every new user sends this first when starting a convo with the bot so use this to get users into db
 bot.onText(/\/start/, async (msg) => {
     
-    var {rows} = await pool.query('SELECT * FROM users WHERE userid = $1', [msg.chat.id])
+    var {rows} = await pool.query('SELECT * FROM users WHERE userid = $1', [msg.chat.id]);
     if(rows.length == 0){
         pool.query(`INSERT INTO users(userid, created_on, lang) VALUES ($1, to_timestamp($2), $3) RETURNING *`, [msg.chat.id, (Date.now() / 1000.0), 'en']);
     }
@@ -318,7 +315,6 @@ async function checkArrival(group, code, chat){
     
     const jewel = getJewel();
     const jewelName = await getCorrectMessage(30 + jewel.i, user.lang);
-    const finishMsg = (await getCorrectMessage(44, user.lang));
 
     var fs  = require("fs");
     fs.readFile(`./instructions/${user.lang}/${group.current_checkpoint}.txt`, function(err, f){
@@ -359,17 +355,17 @@ async function checkArrival(group, code, chat){
             pool.query('UPDATE groups SET current_checkpoint = $3, current_clue = $4, arrived = $2, completed = $2 WHERE id = $1', [group.id, false, group.current_checkpoint + 1, 1]);
             bot.sendPhoto(chat, './clues/pics/12.png');
             sendClue(group.current_checkpoint + 1, 1, chat, user.lang);
-        }else if(group.current_checkpoint == end){
-            pool.query('UPDATE groups SET completed = $2, arrived = $2 WHERE id = $1', [group.id, true]);
-            sendInstruction(group, chat);
-            bot.sendPhoto(chat, './finisher.png');        
-            bot.sendMessage(chat, finishMsg);
         }else{
             pool.query('UPDATE groups SET arrived = $2 WHERE id = $1', [group.id, true]);
             sendInstruction(group, chat);
         }
     });
 
+    if(group.current_checkpoint == end){
+        pool.query('UPDATE groups SET completed = $2 WHERE id = $1', [group.id, true]);
+        bot.sendPhoto(chat, './finisher.png');        
+        bot.sendMessage(chat, (await getCorrectMessage(44, user.lang)));
+    }
 
 };
 
@@ -721,9 +717,6 @@ bot.onText(/\/begin$/, async (msg) => {
     const group = await getGroupData(msg.chat.id);
     const user = await getUser(msg.chat.id);    
 
-    if(!user){
-        return false
-    }
     if(user.group_id == null){
         bot.sendMessage(msg.chat.id, await getCorrectMessage(16, user.lang));
         return false;
@@ -877,7 +870,6 @@ bot.onText(/\/arrive (.+)/, async (msg, match) => {
 
     const msg6 = (await getCorrectMessage(6, user.lang));
     const msg7 = (await getCorrectMessage(7, user.lang));
-    const finishMsg = (await getCorrectMessage(44, user.lang));
 
     var fs  = require("fs");
     fs.readFile(`./instructions/${user.lang}/${group.current_checkpoint}.txt`, function(err, f){
@@ -912,17 +904,17 @@ bot.onText(/\/arrive (.+)/, async (msg, match) => {
             pool.query('UPDATE groups SET current_checkpoint = $3, current_clue = $4, arrived = $2, completed = $2 WHERE id = $1', [group.id, false, group.current_checkpoint + 1, 1]);
             bot.sendPhoto(msg.chat.id, './clues/pics/12.png');
             sendClue(group.current_checkpoint + 1, 1, msg.chat.id, user.lang);
-        }else if(group.current_checkpoint == end){
-            pool.query('UPDATE groups SET completed = $2, arrived = $2 WHERE id = $1', [group.id, true]);
-            sendInstruction(group, chat);
-            bot.sendPhoto(chat, './finisher.png');        
-            bot.sendMessage(chat, finishMsg);
         }else{
             pool.query('UPDATE groups SET arrived = $2 WHERE id = $1', [group.id, true]);
-            sendInstruction(group, chat);
+            sendInstruction(group, msg.chat.id);
         }
     });
 
+    if(group.current_checkpoint == end){
+        pool.query('UPDATE groups SET completed = $2 WHERE id = $1', [group.id, true]);
+        bot.sendPhoto(msg.chat.id, './finisher.png');
+        bot.sendMessage(msg.chat.id, (await getCorrectMessage(44, user.lang)));
+    }
 });
 
 bot.onText(/\/prize$/, async (msg) => {
@@ -948,9 +940,6 @@ bot.onText(/\/commands/, async (msg) => {
 //arrive at new checkpoint and give pw
 bot.onText(/\/arrive$/, async (msg) => {
     const user = await getUser(msg.chat.id);
-    if(!user){
-        return false
-    }
     if(!user.group_id){
         bot.sendMessage(msg.chat.id, (await getCorrectMessage(16, user.lang)));
         return false;
@@ -969,18 +958,12 @@ bot.onText(/\/arrive$/, async (msg) => {
 
 bot.onText(/\/join$/, async (msg) => {
     const user = await getUser(msg.chat.id);
-    if(!user){
-        return false
-    }
     bot.sendMessage(msg.chat.id, (await getCorrectMessage(27, user.lang)));
 });
 
 //change language
 bot.onText(/\/lang/, async (msg) => {
     const user = await getUser(msg.chat.id);
-    if(!user){
-        return false
-    }
     bot.sendMessage(msg.chat.id, `Remember that the clues will always be in English`);
     const opts = {
         reply_to_message_id: msg.message_id,

@@ -1,4 +1,5 @@
-password
-instructions to the task on the checkpoint
-solution (if applicable)
-money you get for completing the task
+password#
+instructions to the task on the checkpoint#
+solution format#
+text after task#
+money you get for completing the task?
